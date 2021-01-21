@@ -15,12 +15,45 @@ import json
 
 model = load_model('model/vgg19_transfer_200ep_bestsave.h5')
 result_dict = {0 :"NG", 1 : "OK"}
+
+# croping non-interested area using statistical operations over interest points 
+def non_interest_point_croping(img):
+    orb = cv2.ORB_create(nfeatures=1000, scoreType=cv2.ORB_FAST_SCORE)
+    kp = orb.detect(img,None)
+    kp, des = orb.compute(img, kp)
+    
+    x = np.array([keypoint.pt[0] for keypoint in kp]).astype(np.int16)
+    y = np.array([keypoint.pt[1] for keypoint in kp]).astype(np.int16)
+
+    xstd = np.std(x)
+    ystd = np.std(y)
+    xmean = np.mean(x)
+    ymean = np.mean(y)
+    # print (xstd,ystd,xmean,ymean)
+    x0,y0 = int(xmean - 2*xstd), int(ymean - 2*ystd)
+    x1,y1 = int(xmean + 2*xstd), int(ymean + 2*ystd)
+
+    if x0<min(x):
+        x0=int(min(x))
+    if y0<min(y):
+        y0=int(min(y))
+
+    if x1> max(x):
+        x1 =int(max(x))
+    if y1> max(y):
+        y1 = int(max(y))
+    
+    return img[x0:x1,y0:y1,:]
+
 def load(np_image):
     # np_image = Image.open(filename)
     np_image = np.array(np_image).astype('float32')/255
-    np_image = transform.resize(np_image, (224, 224, 3))
-    np_image = np.expand_dims(np_image, axis=0)
-    return np_image
+    img = np_image[0:400,20:500,:]
+    img = non_interest_point_croping(img)
+    img = cv2.resize(img,(50,50),interpolation=cv2.INTER_AREA)
+    ret,img = cv2.threshold(img,150,255,cv2.THRESH_TOZERO)
+    x = np.expand_dims(img  , axis=0)
+    return x
 
 
 def change_labelcolor(count, category):
